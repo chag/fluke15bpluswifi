@@ -17,16 +17,14 @@ some pictures of cats.
 #include "httpd.h"
 #include "io.h"
 #include "httpdespfs.h"
-#include "cgi.h"
 #include "cgiwifi.h"
 #include "cgiflash.h"
-#include "stdout.h"
 #include "auth.h"
 #include "espfs.h"
 #include "captdns.h"
 #include "webpages-espfs.h"
 #include "cgiwebsocket.h"
-#include "cgi-test.h"
+#include "mm.h"
 
 //The example can print out the heap use every 3 seconds. You can use this to catch memory leaks.
 //#define SHOW_HEAP_USE
@@ -50,13 +48,25 @@ int myPassFn(HttpdConnData *connData, int no, char *user, int userLen, char *pas
 
 static ETSTimer websockTimer;
 
+static char sendBuf[2048]={0};
+static int sendBufPos=0;
+
+static void ICACHE_FLASH_ATTR stdoutPutcharWs(char c) {
+	if (c=='\n') {
+		stdoutPutcharWs('<');
+		stdoutPutcharWs('B');
+		stdoutPutcharWs('R');
+		stdoutPutcharWs('>');
+		return;
+	}
+	sendBuf[sendBufPos++]=c;
+	if (sendBufPos>=sizeof(sendBuf)) sendBufPos=sizeof(sendBuf)-1;
+}
+
 //Broadcast the uptime in seconds every second over connected websockets
 static void ICACHE_FLASH_ATTR websockTimerCb(void *arg) {
-	static int ctr=0;
-	char buff[128];
-	ctr++;
-	os_sprintf(buff, "Up for %d minutes %d seconds!\n", ctr/60, ctr%60);
-	cgiWebsockBroadcast("/websocket/ws.cgi", buff, os_strlen(buff), WEBSOCK_FLAG_NONE);
+	if (sendBufPos!=0) cgiWebsockBroadcast("/websocket/ws.cgi", sendBuf, sendBufPos, WEBSOCK_FLAG_NONE);
+	sendBufPos=0;
 }
 
 //On reception of a message, send "You sent: " plus whatever the other side sent
@@ -120,10 +130,7 @@ should be placed above the URLs they protect.
 */
 HttpdBuiltInUrl builtInUrls[]={
 	{"*", cgiRedirectApClientToHostname, "esp8266.nonet"},
-	{"/", cgiRedirect, "/index.tpl"},
-	{"/led.tpl", cgiEspFsTemplate, tplLed},
-	{"/index.tpl", cgiEspFsTemplate, tplCounter},
-	{"/led.cgi", cgiLed, NULL},
+	{"/", cgiRedirect, "/index.html"},
 #ifdef INCLUDE_FLASH_FNS
 	{"/flash/next", cgiGetFirmwareNext, &uploadParams},
 	{"/flash/upload", cgiUploadFirmware, &uploadParams},
@@ -146,26 +153,35 @@ HttpdBuiltInUrl builtInUrls[]={
 	{"/websocket/ws.cgi", cgiWebsocket, myWebsocketConnect},
 	{"/websocket/echo.cgi", cgiWebsocket, myEchoWebsocketConnect},
 
-	{"/test", cgiRedirect, "/test/index.html"},
-	{"/test/", cgiRedirect, "/test/index.html"},
-	{"/test/test.cgi", cgiTestbed, NULL},
-
 	{"*", cgiEspFsHook, NULL}, //Catch-all cgi function for the filesystem
 	{NULL, NULL, NULL}
 };
 
 
-#ifdef SHOW_HEAP_USE
-static ETSTimer prHeapTimer;
-
-static void ICACHE_FLASH_ATTR prHeapTimerCb(void *arg) {
-	os_printf("Heap: %ld\n", (unsigned long)system_get_free_heap_size());
+void mmData(int value, int decPtPos, int unit) {
+	const char mls[]=" fpnumKMGT";
+	const char *units[]={"ohm","V","A","F","C","X","H","Hz"};
+	int x;
+	char buf[12];
+	int p=11;
+	int val=value;
+	if (val<0) val=-val;
+	buf[p--]=0;
+	for (x=0; x<10; x++) {
+		if (x>decPtPos && val==0) break;
+		if (decPtPos==x && x!=0) buf[p--]='.';
+		buf[p--]='0'+val%10;
+		val/=10;
+	}
+	if (value<0) buf[p--]='-';
+	printf("%s %c%s%s\n", &buf[p+1], mls[unit>>8], units[unit&127], (unit&MM_U_FL_AC)?" AC":"");
 }
-#endif
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
 void user_init(void) {
-	stdoutInit();
+	mmInit(mmData);
+	//Redirect stdout to websocket
+	os_install_putc1((void *)stdoutPutcharWs);
 	ioInit();
 	captdnsInit();
 
@@ -177,11 +193,6 @@ void user_init(void) {
 	espFsInit((void*)(webpages_espfs_start));
 #endif
 	httpdInit(builtInUrls, 80);
-#ifdef SHOW_HEAP_USE
-	os_timer_disarm(&prHeapTimer);
-	os_timer_setfn(&prHeapTimer, prHeapTimerCb, NULL);
-	os_timer_arm(&prHeapTimer, 3000, 1);
-#endif
 	os_timer_disarm(&websockTimer);
 	os_timer_setfn(&websockTimer, websockTimerCb, NULL);
 	os_timer_arm(&websockTimer, 1000, 1);

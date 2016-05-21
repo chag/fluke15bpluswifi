@@ -2,7 +2,7 @@
 #the espfs combined into the flash binary.
 
 # Change tagname to some identifier that's unique for your project. 27 chars max.
-TAGNAME ?= "generic"
+TAGNAME ?= "fluke15bplus"
 
 # linker script used for the linker step
 
@@ -88,4 +88,9 @@ flash: $(TARGET_OUT) $(FW_BASE)
 
 blankflash:
 	$(Q) $(ESPTOOL) $(ESPTOOL_OPTS) write_flash $(ESPTOOL_FLASHDEF) $(BLANKPOS) $(SDK_BASE)/bin/blank.bin $(INITDATAPOS) $(SDK_BASE)/bin/esp_init_data_default.bin
+
+httpflash: $(FW_BASE)
+	$(Q) curl -X POST --data-binary '@build/httpd.ota' $(ESPIP)/flash/upload > /dev/null
+	$(Q) curl $(ESPIP)/flash/reboot
+	$(Q) echo -e '\nDone'
 

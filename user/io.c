@@ -11,21 +11,16 @@
 
 #include <esp8266.h>
 
-#define LEDGPIO 2
-#define BTNGPIO 0
+#define PWRON		(1<<5)
+#define HOLDBTN		(1<<4)
+#define HZREL		(1<<14)
+#define HZIND		(1<<12)
 
 static ETSTimer resetBtntimer;
 
-void ICACHE_FLASH_ATTR ioLed(int ena) {
-	//gpio_output_set is overkill. ToDo: use better mactos
-	if (ena) {
-		gpio_output_set((1<<LEDGPIO), 0, (1<<LEDGPIO), 0);
-	} else {
-		gpio_output_set(0, (1<<LEDGPIO), (1<<LEDGPIO), 0);
-	}
-}
 
 static void ICACHE_FLASH_ATTR resetBtnTimerCb(void *arg) {
+/*
 	static int resetCnt=0;
 	if (!GPIO_INPUT_GET(BTNGPIO)) {
 		resetCnt++;
@@ -38,12 +33,16 @@ static void ICACHE_FLASH_ATTR resetBtnTimerCb(void *arg) {
 		}
 		resetCnt=0;
 	}
+*/
 }
 
 void ioInit() {
-	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
-	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0);
-	gpio_output_set(0, 0, (1<<LEDGPIO), (1<<BTNGPIO));
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14);
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
+	gpio_output_set(PWRON|HOLDBTN, HZREL|HZIND, PWRON|HZREL|HZIND, HOLDBTN);
+	
 	os_timer_disarm(&resetBtntimer);
 	os_timer_setfn(&resetBtntimer, resetBtnTimerCb, NULL);
 	os_timer_arm(&resetBtntimer, 500, 1);
