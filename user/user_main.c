@@ -7,11 +7,6 @@
  * ----------------------------------------------------------------------------
  */
 
-/*
-This is example code for the esphttpd library. It's a small-ish demo showing off 
-the server, including WiFi connection management capabilities, some IO and
-some pictures of cats.
-*/
 
 #include <esp8266.h>
 #include "httpd.h"
@@ -25,26 +20,6 @@ some pictures of cats.
 #include "webpages-espfs.h"
 #include "cgiwebsocket.h"
 #include "mm.h"
-
-//The example can print out the heap use every 3 seconds. You can use this to catch memory leaks.
-//#define SHOW_HEAP_USE
-
-//Function that tells the authentication system what users/passwords live on the system.
-//This is disabled in the default build; if you want to try it, enable the authBasic line in
-//the builtInUrls below.
-int myPassFn(HttpdConnData *connData, int no, char *user, int userLen, char *pass, int passLen) {
-	if (no==0) {
-		os_strcpy(user, "admin");
-		os_strcpy(pass, "s3cr3t");
-		return 1;
-//Add more users this way. Check against incrementing no for each user added.
-//	} else if (no==1) {
-//		os_strcpy(user, "user1");
-//		os_strcpy(pass, "something");
-//		return 1;
-	}
-	return 0;
-}
 
 static ETSTimer websockTimer;
 
@@ -85,16 +60,9 @@ void myWebsocketConnect(Websock *ws) {
 	cgiWebsocketSend(ws, "Hi, Websocket!", 14, WEBSOCK_FLAG_NONE);
 }
 
-//On reception of a message, echo it back verbatim
-void myEchoWebsocketRecv(Websock *ws, char *data, int len, int flags) {
-	os_printf("EchoWs: echo, len=%d\n", len);
-	cgiWebsocketSend(ws, data, len, flags);
-}
 
-//Echo websocket connected. Install reception handler.
-void myEchoWebsocketConnect(Websock *ws) {
-	os_printf("EchoWs: connect\n");
-	ws->recvCb=myEchoWebsocketRecv;
+//Multimeter websocket connected. We don't receive anything, so not much to do here.
+void mmWsConnect(Websock *ws) {
 }
 
 
@@ -131,6 +99,8 @@ should be placed above the URLs they protect.
 HttpdBuiltInUrl builtInUrls[]={
 	{"*", cgiRedirectApClientToHostname, "esp8266.nonet"},
 	{"/", cgiRedirect, "/index.html"},
+	{"/mmws.cgi", cgiWebsocket, mmWsConnect},
+
 #ifdef INCLUDE_FLASH_FNS
 	{"/flash/next", cgiGetFirmwareNext, &uploadParams},
 	{"/flash/upload", cgiUploadFirmware, &uploadParams},
@@ -151,7 +121,6 @@ HttpdBuiltInUrl builtInUrls[]={
 	{"/wifi/setmode.cgi", cgiWiFiSetMode, NULL},
 
 	{"/websocket/ws.cgi", cgiWebsocket, myWebsocketConnect},
-	{"/websocket/echo.cgi", cgiWebsocket, myEchoWebsocketConnect},
 
 	{"*", cgiEspFsHook, NULL}, //Catch-all cgi function for the filesystem
 	{NULL, NULL, NULL}
@@ -163,6 +132,7 @@ void mmData(int value, int decPtPos, int unit) {
 	const char *units[]={"ohm","V","A","F","C","X","H","Hz"};
 	int x;
 	char buf[12];
+	char json[128];
 	int p=11;
 	int val=value;
 	if (val<0) val=-val;
@@ -175,6 +145,11 @@ void mmData(int value, int decPtPos, int unit) {
 	}
 	if (value<0) buf[p--]='-';
 	printf("%s %c%s%s\n", &buf[p+1], mls[unit>>8], units[unit&127], (unit&MM_U_FL_AC)?" AC":"");
+
+	x=sprintf(json, "{ \"value\": \"%s\", \"ml\": \"%c\", \"unit\": \"%s\", \"acdc\": \"%s\" }",
+		&buf[p+1], mls[unit>>8], units[unit&127], (unit&MM_U_FL_AC)?"AC":"DC");
+	
+	cgiWebsockBroadcast("/mmws.cgi", json, x, WEBSOCK_FLAG_NONE);
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.

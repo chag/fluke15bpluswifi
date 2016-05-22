@@ -87,18 +87,10 @@ static int lcdToDec(int lcd, int digit) {
 	const int digits[]={DIGIT_0, DIGIT_1, DIGIT_2, DIGIT_3, DIGIT_4, DIGIT_5, DIGIT_6, 
 			DIGIT_7, DIGIT_8, DIGIT_9};
 	int x;
-	int lcdr=lcd;
-/*
-	if (digit==2 || digit==3) {
-		//exchange bit 2 and 0
-		lcdr&=~0x5;
-		if (lcd&1) lcdr|=4;
-		if (lcd&4) lcdr|=1;
-	}
-*/
-	for (x=0; x<10; x++) if (lcdr==digits[x]) return x;
+	for (x=0; x<10; x++) if (lcd==digits[x]) return x;
 	return 0;
 }
+
 
 static void ICACHE_FLASH_ATTR mmDispTimerCb(void *arg) {
 	int value=0, decPtPos=0, unit=0;
@@ -150,7 +142,7 @@ void mmInit(MmDataCb *cb) {
 	callback=cb;
 	os_timer_disarm(&mmDispTimer);
 	os_timer_setfn(&mmDispTimer, mmDispTimerCb, NULL);
-	os_timer_arm(&mmDispTimer, 250, 1);
+	os_timer_arm(&mmDispTimer, 200, 1);
 	uartTxd('n');
 }
 
