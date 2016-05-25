@@ -40,9 +40,18 @@ function MmChart(chartDivId, dispDivId, wsUrl) {
 		
 		this.chartIntervalCt++;
 		if (this.chartIntervalCt>=this.chartInterval) {
-			this.chartData.labels.push(Math.round((Date.now()-this.chartStart)/1000));
 			this.chartData.datasets[0].data.push(obj.value);
+			if ((this.chartData.datasets[0].data.length%5)==0) {
+				var sec=Math.round((Date.now()-this.chartStart)/1000);
+				var min=Math.floor(sec/60);
+				sec=sec%60;
+				if (sec<10) sec="0"+sec;
+				this.chartData.labels.push(min+":"+sec);
+			} else {
+				this.chartData.labels.push("");
+			}
 			if (this.chartData.labels.length==this.chartMaxPt) {
+				//Reached maximum amount of points. Kill half the points and re-duce interval time.
 				var i;
 				for (i=this.chartData.labels.length-2; i>=0; i=i-2) {
 					this.chartData.labels.splice(i, 1);

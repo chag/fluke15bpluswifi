@@ -5,6 +5,8 @@ Routines to handle communication with the Fluke15b+/17b+/18b+ multimeters.
 #include <esp8266.h>
 #include "mm.h"
 #include "uart.h"
+#include "io.h"
+
 
 /*
 Fluke15B+ (and presumably also 17B+ and 18B+) data:
@@ -93,9 +95,19 @@ static int lcdToDec(int lcd, int digit) {
 
 
 static void ICACHE_FLASH_ATTR mmDispTimerCb(void *arg) {
+	static int initial=1;
+	static int shownIp=0;
 	int value=0, decPtPos=0, unit=0;
 	char pkt[8];
 	int b, x=0;
+	if (initial) {
+		os_timer_disarm(&mmDispTimer);
+		os_timer_arm(&mmDispTimer, 200, 1);
+		if (ioGetButton()) return;			//wait till hold button released
+		uartTxd('n');						//kill hold state
+		initial=0;
+		return;
+	}
 	while ((b=uartRxd())!=-1) {
 		if (x<8) {
 			pkt[x]=b;
@@ -133,6 +145,17 @@ static void ICACHE_FLASH_ATTR mmDispTimerCb(void *arg) {
 
 		callback(value, decPtPos, unit);
 	}
+	if (x==8 && !shownIp) {
+		if (wifi_station_get_connect_status()==STATION_GOT_IP) {
+			//Only do this when on amps range.
+			if ((pkt[0]&I1_AMP) && !(pkt[7]&I4_MILLIA)) {
+					struct ip_info info;
+					wifi_get_ip_info(0, &info);
+					ioShowIp(info.ip.addr);
+			}
+			shownIp=1;
+		}
+	}
 	uartTxd('d');
 }
 
@@ -142,7 +165,6 @@ void mmInit(MmDataCb *cb) {
 	callback=cb;
 	os_timer_disarm(&mmDispTimer);
 	os_timer_setfn(&mmDispTimer, mmDispTimerCb, NULL);
-	os_timer_arm(&mmDispTimer, 200, 1);
-	uartTxd('n');
+	os_timer_arm(&mmDispTimer, 1000, 0);
 }
 

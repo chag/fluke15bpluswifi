@@ -1,7 +1,8 @@
 #ifndef IO_H
 #define IO_H
 
-void ICACHE_FLASH_ATTR ioLed(int ena);
 void ioInit(void);
+int ICACHE_FLASH_ATTR ioGetButton();
+void ioShowIp(uint32_t ip);
 
 #endif
