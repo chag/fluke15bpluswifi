@@ -20,6 +20,7 @@
 #include "webpages-espfs.h"
 #include "cgiwebsocket.h"
 #include "mm.h"
+#include "telnetif.h"
 
 static ETSTimer websockTimer;
 
@@ -144,8 +145,11 @@ void mmData(int value, int decPtPos, int unit) {
 		val/=10;
 	}
 	if (value<0) buf[p--]='-';
-	printf("%s %c%s%s\n", &buf[p+1], mls[unit>>8], units[unit&127], (unit&MM_U_FL_AC)?" AC":"");
+	//Abuse json buffer for normal stuff
+	sprintf(json, "%s %c%s%s\n", &buf[p+1], mls[unit>>8], units[unit&127], (unit&MM_U_FL_AC)?" AC":"");
+	telnetBcast(json);
 
+	//Populate json buffer
 	x=sprintf(json, "{ \"value\": \"%s\", \"ml\": \"%c\", \"unit\": \"%s\", \"acdc\": \"%s\" }",
 		&buf[p+1], mls[unit>>8], units[unit&127], (unit&MM_U_FL_AC)?"AC":"DC");
 	
@@ -159,6 +163,7 @@ void user_init(void) {
 	os_install_putc1((void *)stdoutPutcharWs);
 	ioInit();
 	captdnsInit();
+	telnetInit(333);
 
 	// 0x40200000 is the base address for spi flash memory mapping, ESPFS_POS is the position
 	// where image is written in flash that is defined in Makefile.

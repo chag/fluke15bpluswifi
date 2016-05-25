@@ -32,27 +32,33 @@
 static ETSTimer resetBtntimer;
 static ETSTimer ipHzTimer;
 
-void timerInt(void *arg) {
+static int ticksa, ticksb;
+
+//Timer interrupt; toggles an io pin to do pwm
+static void timerInt(void *arg) {
 	static int i=0;
 	if (i) {
+		RTC_REG_WRITE(FRC1_LOAD_ADDRESS, ticksa & TIMER1_COUNT_MASK);
 		gpio_output_set(0, HZIND, 0, 0);
 	} else {
+		RTC_REG_WRITE(FRC1_LOAD_ADDRESS, ticksb & TIMER1_COUNT_MASK);
 		gpio_output_set(HZIND, 0, 0, 0);
 	}
 	i=!i;
 }
 
-//My hw seems to have a slight offset between mm and esp. This corrects for that.
-#define OFFSET -2
+//Do PWM at 312Hz. For some reason, the multimeter acts most stable around this frequency.
+#define TICKSTOT 256000
 
-void ioGenSignal(int hz) {
-	if (hz==0) {
+//Generate a PWM signal (using timerInt) with a duty cycle of dc/1000
+void ioGenSignal(int dc) {
+	if (dc==0) {
 		TM1_EDGE_INT_DISABLE();
 		ETS_FRC1_INTR_DISABLE();
 	} else {
-		int ticks=(80000000/(2*hz))-1+OFFSET;
-		if (ticks<160) return;
-		RTC_REG_WRITE(FRC1_LOAD_ADDRESS, ticks & TIMER1_COUNT_MASK);
+		ticksa=(TICKSTOT*dc)/1000;
+		ticksb=TICKSTOT-ticksa;
+		RTC_REG_WRITE(FRC1_LOAD_ADDRESS, ticksa & TIMER1_COUNT_MASK);
 		RTC_REG_WRITE(FRC1_CTRL_ADDRESS, TIMER1_AUTO_LOAD | TIMER1_ENABLE_TIMER);
 		RTC_CLR_REG_MASK(FRC1_INT_ADDRESS, FRC1_INT_CLR_MASK);
 		ETS_FRC_TIMER1_INTR_ATTACH(timerInt, NULL);
@@ -61,15 +67,10 @@ void ioGenSignal(int hz) {
 	}
 }
 
-static uint32_t ipToShow;
+//This routine abuses the pin that controls the Hz/% pin to switch to duty cycle mode
+//and show the IP as four separate numbers, then switches back.
 
-void sendDigit(int digit) {
-	if (digit!=0) {
-		ioGenSignal(digit*10+5000);
-	} else {
-		ioGenSignal(1000);
-	}
-}
+static uint32_t ipToShow;
 
 #define DIGITTIME 4000
 
@@ -90,16 +91,16 @@ static void ICACHE_FLASH_ATTR ipHzTimerCb(void *arg) {
 		gpio_output_set(0, HZREL, 0, 0);
 		os_timer_arm(&ipHzTimer, 200, 0);
 	} else if (state==5) {
-		sendDigit((ipToShow>>0)&0xff);
+		ioGenSignal((ipToShow>>0)&0xff);
 		os_timer_arm(&ipHzTimer, DIGITTIME, 0);
 	} else if (state==6) {
-		sendDigit((ipToShow>>8)&0xff);
+		ioGenSignal((ipToShow>>8)&0xff);
 		os_timer_arm(&ipHzTimer, DIGITTIME, 0);
 	} else if (state==7) {
-		sendDigit((ipToShow>>16)&0xff);
+		ioGenSignal((ipToShow>>16)&0xff);
 		os_timer_arm(&ipHzTimer, DIGITTIME, 0);
 	} else if (state==8) {
-		sendDigit((ipToShow>>24)&0xff);
+		ioGenSignal((ipToShow>>24)&0xff);
 		os_timer_arm(&ipHzTimer, DIGITTIME, 0);
 	} else if (state==9) {
 		ioGenSignal(0);
@@ -110,7 +111,7 @@ static void ICACHE_FLASH_ATTR ipHzTimerCb(void *arg) {
 	}
 }
 
-
+//Kicks off the above routine.
 void ioShowIp(uint32_t ip) {
 	ipToShow=ip;
 	os_timer_disarm(&ipHzTimer);
@@ -118,12 +119,10 @@ void ioShowIp(uint32_t ip) {
 	os_timer_arm(&ipHzTimer, 100, 0);
 }
 
-
+//Return the status of the hold button.
 int ICACHE_FLASH_ATTR ioGetButton() {
 	if (gpio_input_get()&HOLDBTN) return 1; else return 0;
 }
-
-
 
 static void ICACHE_FLASH_ATTR resetBtnTimerCb(void *arg) {
 /*
