@@ -31,6 +31,7 @@
 
 static ETSTimer resetBtntimer;
 static ETSTimer ipHzTimer;
+static ETSTimer btnTimer;
 
 static int ticksa, ticksb;
 
@@ -119,14 +120,30 @@ void ioShowIp(uint32_t ip) {
 	os_timer_arm(&ipHzTimer, 100, 0);
 }
 
+
 //Return the status of the hold button.
 int ICACHE_FLASH_ATTR ioGetButton() {
 	if (gpio_input_get()&HOLDBTN) return 1; else return 0;
 }
 
+
+void ICACHE_FLASH_ATTR btnTimerCb(void *arg) {
+	gpio_output_set(0, HZREL, 0, 0);
+}
+
+//Actually only accepts the Hz/% btn for now.
+void ioPressBtn(int btn) {
+	gpio_output_set(HZREL, 0, 0, 0);
+	
+	os_timer_disarm(&btnTimer);
+	os_timer_setfn(&btnTimer, btnTimerCb, NULL);
+	os_timer_arm(&btnTimer, 200, 0);
+}
+
+
 static void ICACHE_FLASH_ATTR resetBtnTimerCb(void *arg) {
 /*
-	static int resetCnt=0;
+	static int resetCnt=-1;
 	if (!GPIO_INPUT_GET(BTNGPIO)) {
 		resetCnt++;
 	} else {
@@ -152,8 +169,8 @@ void ioInit() {
 	os_timer_setfn(&resetBtntimer, resetBtnTimerCb, NULL);
 	os_timer_arm(&resetBtntimer, 500, 1);
 
-	os_timer_disarm(&ipHzTimer);
-	os_timer_setfn(&ipHzTimer, ipHzTimerCb, NULL);
-	os_timer_arm(&ipHzTimer, 10000, 0);
+//	os_timer_disarm(&ipHzTimer);
+//	os_timer_setfn(&ipHzTimer, ipHzTimerCb, NULL);
+//	os_timer_arm(&ipHzTimer, 10000, 0);
 }
 

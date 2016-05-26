@@ -49,7 +49,9 @@ D4,D3      D2,D1
 #define I1_AMP		(1<<0)
 #define I1_MILLIV	(1<<1)
 #define I1_FARAD	(1<<2)
+#define I1_HZ		(1<<3)
 #define I1_DIODE	(1<<4)
+#define I1_PCT		(1<<5)
 #define I1_MEGA		(1<<6)
 #define I1_KILO		(1<<7)
 
@@ -138,6 +140,8 @@ static void ICACHE_FLASH_ATTR mmDispTimerCb(void *arg) {
 
 		if (pkt[0]&I1_FARAD) unit|=MM_U_FARAD;
 		if (pkt[0]&I1_AMP) unit|=MM_U_AMP;
+		if (pkt[0]&I1_PCT) unit|=MM_U_PROCENT;
+		if (pkt[0]&I1_HZ) unit|=MM_U_HZ;
 		if (pkt[1]&I2_OHM) unit|=MM_U_OHM;
 		if (pkt[1]&I2_VOLT) unit|=MM_U_VOLT;
 

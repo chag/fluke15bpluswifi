@@ -4,5 +4,7 @@
 void ioInit(void);
 int ICACHE_FLASH_ATTR ioGetButton();
 void ioShowIp(uint32_t ip);
+void ioPressBtn(int btn);
+
 
 #endif

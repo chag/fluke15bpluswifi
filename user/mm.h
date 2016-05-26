@@ -13,6 +13,7 @@ Generic functions to implement a multimeter interface
 #define MM_U_HFE		(5<<0)
 #define MM_U_HENRY		(6<<0)
 #define MM_U_HZ			(7<<0)
+#define MM_U_PROCENT	(8<<0)
 
 #define MM_U_FL_AC		(1<<7)
 

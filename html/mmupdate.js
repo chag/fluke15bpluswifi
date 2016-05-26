@@ -87,10 +87,16 @@ function MmChart(chartDivId, dispDivId, wsUrl) {
 	this.chartMaxPt=200;
 	this.curUnit="";
 	this.curMl="";
+	this.addBtn=function(el, cmd) {
+		el.onclick=function(cmd) {
+			this.ws.send(cmd);
+		}.bind(this, cmd);
+	}
 }
 
 
 
 window.onload=function() {
 	var myMm=new MmChart("mmchart", "mmdisp", "ws://"+window.location.host+"/mmws.cgi");
+	myMm.addBtn(document.getElementById('HzBtn'), "hz");
 }

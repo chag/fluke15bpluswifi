@@ -45,6 +45,10 @@ static void ICACHE_FLASH_ATTR websockTimerCb(void *arg) {
 	sendBufPos=0;
 }
 
+void mmWsRecv(Websock *ws, char *data, int len, int flags) {
+	if (strcmp(data, "hz")==0) ioPressBtn(0);
+}
+
 //On reception of a message, send "You sent: " plus whatever the other side sent
 void myWebsocketRecv(Websock *ws, char *data, int len, int flags) {
 	int i;
@@ -62,8 +66,9 @@ void myWebsocketConnect(Websock *ws) {
 }
 
 
-//Multimeter websocket connected. We don't receive anything, so not much to do here.
+//Multimeter websocket connected.
 void mmWsConnect(Websock *ws) {
+	ws->recvCb=mmWsRecv;
 }
 
 
@@ -130,7 +135,7 @@ HttpdBuiltInUrl builtInUrls[]={
 
 void mmData(int value, int decPtPos, int unit) {
 	const char mls[]=" fpnumKMGT";
-	const char *units[]={"ohm","V","A","F","C","X","H","Hz"};
+	const char *units[]={"ohm","V","A","F","C","X","H","Hz", "%"};
 	int x;
 	char buf[12];
 	char json[128];
