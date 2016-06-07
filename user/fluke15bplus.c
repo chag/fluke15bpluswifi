@@ -99,12 +99,15 @@ static int lcdToDec(int lcd, int digit) {
 static void ICACHE_FLASH_ATTR mmDispTimerCb(void *arg) {
 	static int initial=1;
 	static int shownIp=0;
+	static int btnHeld=0;
 	int value=0, decPtPos=0, unit=0;
 	char pkt[8];
 	int b, x=0;
+	os_printf("BtnHeld %d %d\n", btnHeld, ioGetButton());
 	if (initial) {
 		os_timer_disarm(&mmDispTimer);
 		os_timer_arm(&mmDispTimer, 200, 1);
+//		return;
 		if (ioGetButton()) return;			//wait till hold button released
 		uartTxd('n');						//kill hold state
 		initial=0;
@@ -161,6 +164,18 @@ static void ICACHE_FLASH_ATTR mmDispTimerCb(void *arg) {
 		}
 	}
 	uartTxd('d');
+
+	//Watch for ap reset thing
+	if (ioGetButton()) {
+		btnHeld++;
+		if (btnHeld==3*5) { //>5 sec
+			wifi_station_disconnect();
+			wifi_set_opmode_current(0x3); //reset to AP+STA mode
+			os_printf("Reset to AP+sta mode...\n");
+		}
+	} else {
+		btnHeld=0;
+	}
 }
 
 

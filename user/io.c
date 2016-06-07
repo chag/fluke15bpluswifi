@@ -12,7 +12,7 @@
 #include <esp8266.h>
 
 #define PWRON		(1<<5)
-#define HOLDBTN		(1<<4)
+#define HOLDBTN		(1<<13)
 #define HZREL		(1<<14)
 #define HZIND		(1<<12)
 
@@ -29,7 +29,6 @@
 
 #define TIMER1_COUNT_MASK               0x007fffff        // 23 bit timer
 
-static ETSTimer resetBtntimer;
 static ETSTimer ipHzTimer;
 static ETSTimer btnTimer;
 
@@ -109,6 +108,7 @@ static void ICACHE_FLASH_ATTR ipHzTimerCb(void *arg) {
 		os_timer_arm(&ipHzTimer, 200, 0);
 	} else if (state==10) {
 		gpio_output_set(0, HZREL, 0, 0);
+		state=0;
 	}
 }
 
@@ -123,6 +123,8 @@ void ioShowIp(uint32_t ip) {
 
 //Return the status of the hold button.
 int ICACHE_FLASH_ATTR ioGetButton() {
+	//Hold-button pulls down the gate of the mosfet
+	//Mosfet releases GPIO, which goes high.
 	if (gpio_input_get()&HOLDBTN) return 1; else return 0;
 }
 
@@ -140,37 +142,12 @@ void ioPressBtn(int btn) {
 	os_timer_arm(&btnTimer, 200, 0);
 }
 
-
-static void ICACHE_FLASH_ATTR resetBtnTimerCb(void *arg) {
-/*
-	static int resetCnt=-1;
-	if (!GPIO_INPUT_GET(BTNGPIO)) {
-		resetCnt++;
-	} else {
-		if (resetCnt>=6) { //3 sec pressed
-			wifi_station_disconnect();
-			wifi_set_opmode(0x3); //reset to AP+STA mode
-			os_printf("Reset to AP mode. Restarting system...\n");
-			system_restart();
-		}
-		resetCnt=0;
-	}
-*/
-}
-
 void ioInit() {
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTCK_U, FUNC_GPIO13);
 	gpio_output_set(PWRON|HOLDBTN, HZREL|HZIND, PWRON|HZREL|HZIND, HOLDBTN);
-	
-	os_timer_disarm(&resetBtntimer);
-	os_timer_setfn(&resetBtntimer, resetBtnTimerCb, NULL);
-	os_timer_arm(&resetBtntimer, 500, 1);
-
-//	os_timer_disarm(&ipHzTimer);
-//	os_timer_setfn(&ipHzTimer, ipHzTimerCb, NULL);
-//	os_timer_arm(&ipHzTimer, 10000, 0);
 }
 

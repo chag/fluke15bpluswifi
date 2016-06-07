@@ -182,6 +182,7 @@ void user_init(void) {
 	os_timer_setfn(&websockTimer, websockTimerCb, NULL);
 	os_timer_arm(&websockTimer, 1000, 1);
 	os_printf("\nReady\n");
+	wifi_set_sleep_type(LIGHT_SLEEP_T);
 }
 
 void user_rf_pre_init() {
