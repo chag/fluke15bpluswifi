@@ -2,6 +2,16 @@
 Routines to handle communication with the Fluke15b+/17b+/18b+ multimeters.
 */
 
+/*
+ * ----------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * Jeroen Domburg <jeroen@spritesmods.com> wrote this file. As long as you retain 
+ * this notice you can do whatever you want with this stuff. If we meet some day, 
+ * and you think this stuff is worth it, you can buy me a beer in return. 
+ * ----------------------------------------------------------------------------
+ */
+
+
 #include <esp8266.h>
 #include "mm.h"
 #include "uart.h"

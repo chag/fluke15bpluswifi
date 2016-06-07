@@ -1,3 +1,8 @@
+# Fluke15pluswifi readme #
+
+See http://spritesmods.com/?art=fluke15pluswifi for more info
+
+
 # esp-httpd README #
 
 This is the demonstration project for the small but powerful libesphttpd webserver 
